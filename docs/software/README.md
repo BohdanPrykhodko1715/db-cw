@@ -122,3 +122,179 @@ ALTER TABLE "partipicants" ADD CONSTRAINT "partipicants_task_id_fkey" FOREIGN KE
 
 
 ```
+
+## RESTfull сервіс для управління даними
+
+### ProjecContoller.cs
+```csharp
+
+using db_lab6.Data;
+using db_lab6.Model;
+using Microsoft.AspNetCore.Mvc;
+using System.ComponentModel.DataAnnotations;
+using System.Configuration;
+
+namespace db_lab6.Controllers
+{
+    [ApiController]
+    [Route("api/[controller]")]
+    public class ProjectController : ControllerBase
+    {
+        private readonly AplicationDbContext _db;
+
+        public ProjectController(AplicationDbContext db)
+        {
+            _db = db;
+        }
+
+        [HttpPost("Create Project")]
+        public async Task<IActionResult> Creation([FromBody] projectDTO CreateProjectDTO)
+        {
+            var project = new project(CreateProjectDTO.name, CreateProjectDTO.description);
+
+            project.status = "IN_PROGRESS";
+
+            var testProjectName = _db.projects.FirstOrDefault(u => u.name == project.name);
+
+            if (testProjectName != null)
+            {
+                return BadRequest("Project with this name already exists.");
+            }
+
+            await _db.projects.AddAsync(project);
+            await _db.SaveChangesAsync();
+
+            return Ok("Created successfully.");
+        }
+
+        [HttpGet("Get all projects")]
+        public async Task<IActionResult> GetAllProjects()
+        {
+            var projects = _db.projects;
+
+            return Ok(projects);
+        }
+    }
+}
+
+
+```
+
+### AplicationDbContext.cs
+
+```csharp
+using Microsoft.EntityFrameworkCore;
+using System.Data;
+using db_lab6.Model;
+
+
+namespace db_lab6.Data
+{
+    public class AplicationDbContext : DbContext
+    {
+        public AplicationDbContext(DbContextOptions<AplicationDbContext> options) : base(options)
+        {
+
+        }
+
+        public DbSet<project> projects { get; set; }
+    }
+}
+
+```
+### project.cs
+
+```csharp
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
+using System.Data;
+
+namespace db_lab6.Model
+{
+    public class project
+    {
+        [Key]
+        public int id { get; set; }
+        public string name { get; set; }
+        public string description { get; set; }
+        public string status { get; set; }
+        public project(string name, string description)
+        {
+            this.name = name;
+            this.description = description;
+        }
+    }
+}
+
+```
+
+### projectDTO.cs
+
+```csharp
+
+using Microsoft.AspNetCore.Mvc;
+using System.ComponentModel.DataAnnotations;
+
+namespace db_lab6.Model
+{
+    public class projectDTO
+    {
+        [Required]
+        public string name { get; set; }
+        [Required]
+        public string description { get; set; }
+    }
+}
+
+```
+
+### Program.cs
+
+```csharp
+using Microsoft.EntityFrameworkCore;
+using db_lab6.Data;
+
+var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddDbContext<AplicationDbContext>(options =>
+    options.UseMySql(builder.Configuration.GetConnectionString("DefaultConnection"), new MySqlServerVersion(new Version(8, 0, 37))));
+
+builder.Services.AddControllers();
+
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
+
+var app = builder.Build();
+
+// Configure the HTTP request pipeline.
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
+
+app.UseHttpsRedirection();
+app.MapControllers();
+
+app.Run();
+
+```
+
+### appsettings.json
+
+```json
+
+{
+    "ConnectionStrings": {
+        "DefaultConnection": "Server=localhost;Port=3306;Database=db;Uid=root;Pwd=12345;"
+    },
+    "Logging": {
+        "LogLevel": {
+            "Default": "Information",
+            "Microsoft.AspNetCore": "Warning"
+        }
+    },
+    "AllowedHosts": "*"
+}
+
+```
